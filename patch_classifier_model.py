@@ -11,7 +11,6 @@ import torch.nn as nn
 class PatchClassifier(nn.Module):
     """
     CNN classifier for patch-level binary classification.
-    Much simpler than U-Net since we only care about patch label, not pixel-level segmentation.
     """
     def __init__(self):
         super().__init__()

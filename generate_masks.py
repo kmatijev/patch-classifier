@@ -99,13 +99,13 @@ def generate_masks_from_annotations(df, images_dir, output_dir, exclude_scanner=
                     break
         
         if not image_path.exists():
-            print(f"  ⚠ WARNING: Image not found: {image_path}")
+            print(f"  WARNING: Image not found: {image_path}")
             continue
         
         # Load image to verify dimensions
         img = cv2.imread(str(image_path))
         if img is None:
-            print(f"  ⚠ WARNING: Could not read image: {image_path}")
+            print(f"  WARNING: Could not read image: {image_path}")
             continue
         
         # ================================================================

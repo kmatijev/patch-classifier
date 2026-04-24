@@ -205,7 +205,7 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
             model_path = model_dir / model_name
             
             if not model_path.exists():
-                print(f"⚠ Model not found: {model_path}")
+                print(f"Model not found: {model_path}")
                 models_missing += 1
                 continue
             
@@ -231,7 +231,7 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
                 
                 metrics = evaluate_model_on_scanner(model, test_loader, device)
                 
-                same_domain = "✓ SAME" if train_scanner == test_scanner else "✗ DIFF"
+                same_domain = "SAME" if train_scanner == test_scanner else "DIFF"
                 
                 print(f"  Test on {test_scanner:20s} {same_domain:10s} | "
                       f"Acc: {metrics['accuracy']:.4f} | "
@@ -264,7 +264,7 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
     results_df = pd.DataFrame(results)
     csv_path = output_dir / "domain_shift_results.csv"
     results_df.to_csv(csv_path, index=False)
-    print(f"✓ Results saved to: {csv_path}\n")
+    print(f"Results saved to: {csv_path}\n")
     
     # Create visualizations
     print("Generating visualizations...")
@@ -272,15 +272,16 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
     images_dir.mkdir(parents=True, exist_ok=True)
     
     # 1. Heatmap: F1 scores for each model-scanner combination
-    n_subplots = len(selected_augmentations)
-    fig, axes = plt.subplots(1, n_subplots, figsize=(7*n_subplots, 5.5))
-    if n_subplots == 1:
-        axes = [axes]
+    # Create separate heatmap for each augmentation
     
-    fig.suptitle('F1-Score Across Domain Shifts (Rows: Training Scanner, Cols: Test Scanner)', 
-                 fontsize=14, fontweight='bold', y=1.00)
+    aug_translations = {
+        'standard': 'Standardna augmentacija',
+        'medium': 'Srednja augmentacija',
+        'strong': 'Jaka augmentacija',
+        'histology': 'Histološka augmentacija'
+    }
     
-    for idx, aug in enumerate(selected_augmentations):
+    for aug in selected_augmentations:
         aug_data = results_df[results_df['augmentation'] == aug]
         
         if aug_data.empty:
@@ -297,21 +298,26 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
         # Reorder to match selected scanners
         pivot = pivot.reindex(selected_train_scanners, axis=0).reindex(selected_test_scanners, axis=1)
         
-        ax = axes[idx]
-        sns.heatmap(pivot, annot=True, fmt='.3f', cmap='RdYlGn', vmin=0.7, vmax=0.95,
-                   ax=ax, cbar_kws={'label': 'F1-Score'})
-        ax.set_title(f'{aug.capitalize()} Augmentation', fontweight='bold')
-        ax.set_xlabel('Test Scanner')
-        ax.set_ylabel('Training Scanner' if idx == 0 else '')
-    
-    plt.subplots_adjust(top=0.92, bottom=0.15, left=0.08, right=0.95, wspace=0.35)
-    heatmap_path = images_dir / "f1_heatmaps_by_augmentation.png"
-    plt.savefig(heatmap_path, dpi=150, bbox_inches='tight')
-    print(f"✓ Heatmaps saved: {heatmap_path}")
-    plt.close()
+        # Create individual figure
+        fig, ax = plt.subplots(figsize=(8, 6))
+        
+        sns.heatmap(pivot, annot=True, fmt='.3f', cmap='RdYlGn', vmin=0.0, vmax=0.95,
+                   ax=ax, cbar_kws={'label': 'F1 mjera'})
+        
+        ax.set_title(f'{aug_translations[aug]}', fontweight='bold', fontsize=14)
+        ax.set_xlabel('Skener na kojem je testiran', fontweight='bold')
+        ax.set_ylabel('Skener na kojem je treniran', fontweight='bold')
+        
+        plt.tight_layout()
+        
+        # Save individual heatmap
+        heatmap_path = images_dir / f"f1_heatmap_{aug}.png"
+        plt.savefig(heatmap_path, dpi=150, bbox_inches='tight')
+        print(f"Heatmap saved: {heatmap_path}")
+        plt.close()
     
     # 2. Bar plot: Same-domain vs cross-domain performance
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(12, 7))
     
     # Filter for selected augmentations only
     selected_results = results_df[results_df['augmentation'].isin(selected_augmentations)]
@@ -325,18 +331,27 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
     x = np.arange(len(selected_augmentations))
     width = 0.35
     
-    bars1 = ax.bar(x - width/2, same_domain.values, width, label='Same Domain (In-Domain)', 
+    bars1 = ax.bar(x - width/2, same_domain.values, width, label='Ista domena (Unutar domene)', 
                    color='green', alpha=0.7, edgecolor='black')
-    bars2 = ax.bar(x + width/2, diff_domain.values, width, label='Cross Domain (Out-of-Domain)',
+    bars2 = ax.bar(x + width/2, diff_domain.values, width, label='Različita domena (Van domene)',
                    color='red', alpha=0.7, edgecolor='black')
     
-    ax.set_xlabel('Augmentation Strategy', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Average F1-Score', fontsize=12, fontweight='bold')
-    ax.set_title('Domain Shift Impact: In-Domain vs Cross-Domain Performance', 
-                fontsize=13, fontweight='bold')
+    ax.set_xlabel('Vrsta augmentacije', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Prosječna F1 mjera', fontsize=12, fontweight='bold')
+    ax.set_title('Utjecaj domenskog pomaka: Performanse modela unutar i izvan domene', 
+                fontsize=13, fontweight='bold', pad=20)
     ax.set_xticks(x)
-    ax.set_xticklabels([a.capitalize() for a in selected_augmentations])
-    ax.legend(fontsize=11)
+    
+    # Croatian translations for augmentations
+    aug_labels = {
+        'standard': 'Standardna',
+        'medium': 'Srednja',
+        'strong': 'Jaka',
+        'histology': 'Histološka'
+    }
+    ax.set_xticklabels([aug_labels.get(a, a.capitalize()) for a in selected_augmentations])
+    
+    ax.legend(fontsize=11, loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2)
     ax.set_ylim([0.0, 0.95])
     ax.grid(axis='y', alpha=0.3)
     
@@ -361,10 +376,10 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
                    f'{height:.3f}',
                    ha='center', va=va_align, fontsize=fontsize_label, fontweight=fontweight_label, color=color_label)
     
-    plt.tight_layout()
+    plt.subplots_adjust(top=0.92, bottom=0.12, left=0.08, right=0.95)
     domain_path = images_dir / "domain_shift_comparison.png"
     plt.savefig(domain_path, dpi=150, bbox_inches='tight')
-    print(f"✓ Domain comparison saved: {domain_path}")
+    print(f"Domain comparison saved: {domain_path}")
     plt.close()
     
     # 3. Summary statistics
@@ -376,7 +391,7 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
         aug_data = results_df[results_df['augmentation'] == aug]
         
         if aug_data.empty:
-            print(f"{aug.upper()} Augmentation: ⚠ NO DATA (models may not exist)")
+            print(f"{aug.upper()} Augmentation: NO DATA (models may not exist)")
             print()
             continue
         
@@ -412,12 +427,12 @@ def analyze_domain_shift(data_root, model_dir, output_dir, selected_train_scanne
     print(f"{'='*100}\n")
     
     if models_missing > 0:
-        print(f"⚠ Note: {models_missing} model(s) were not found.")
+        print(f"Note: {models_missing} model(s) were not found.")
         print(f"   Train them using: python train_domain_shift.py")
         print(f"   (Missing models result in N/A statistics for cross-domain comparisons)\n")
     
     if results_df.empty:
-        print("⚠ No results to analyze. Please check that models exist in ./models/\n")
+        print("No results to analyze. Please check that models exist in ./models/\n")
     
     return results_df
 
@@ -477,7 +492,7 @@ if __name__ == "__main__":
             selected_test_scanners=selected_test_scanners,
             selected_augmentations=selected_augmentations
         )
-        print("✓ Analysis complete!")
+        print("Analysis complete!")
     else:
         print(f"Error: Data root not found: {data_root}")
         print("Please ensure patches exist at the data root path")

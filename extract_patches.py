@@ -156,12 +156,12 @@ def extract_multi_scanner_patches(df, images_dir, masks_dir, output_dir,
                         break
             
             if not image_path.exists():
-                print(f"  ⚠ Image not found: {image_path}")
+                print(f"  Image not found: {image_path}")
                 continue
             
             img = cv2.imread(str(image_path))
             if img is None:
-                print(f"  ⚠ Could not read image: {image_path}")
+                print(f"  Could not read image: {image_path}")
                 continue
             
             height, width = img.shape[:2]
@@ -171,12 +171,12 @@ def extract_multi_scanner_patches(df, images_dir, masks_dir, output_dir,
             mask_path = masks_dir / mask_filename
             
             if not mask_path.exists():
-                print(f"  ⚠ Mask not found: {mask_path}")
+                print(f"  Mask not found: {mask_path}")
                 continue
             
             mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
             if mask is None:
-                print(f"  ⚠ Could not read mask: {mask_path}")
+                print(f"  Could not read mask: {mask_path}")
                 continue
             
             # ============================================================
@@ -195,14 +195,24 @@ def extract_multi_scanner_patches(df, images_dir, masks_dir, output_dir,
                 center_y = y + h // 2
                 
                 # Extract patches at different offsets around mitosis
+                # offsets = [
+                #     (0, 0),           # center
+                #     (-30, 0),         # left  (absolute pixels)
+                #     (30, 0),          # right
+                #     (0, -30),         # top
+                #     (0, 30),          # bottom
+                #     (-30, -30),       # top-left
+                #     (30, 30),         # bottom-right
+                # ]
+
                 offsets = [
                     (0, 0),           # center
-                    (-30, 0),         # left  (absolute pixels)
-                    (30, 0),          # right
-                    (0, -30),         # top
-                    (0, 30),          # bottom
-                    (-30, -30),       # top-left
-                    (30, 30),         # bottom-right
+                    (-patch_size // 2, 0),         # left  (absolute pixels)
+                    (patch_size // 2, 0),          # right
+                    (0, -patch_size // 2),         # top
+                    (0, patch_size // 2),          # bottom
+                    (-patch_size // 2, -patch_size // 2),       # top-left
+                    (patch_size // 2, patch_size // 2),         # bottom-right
                 ]
                 
                 for offset_x, offset_y in offsets:
@@ -250,7 +260,7 @@ def extract_multi_scanner_patches(df, images_dir, masks_dir, output_dir,
                 target_negative = 10
             
             attempts = 0
-            max_attempts = 5000
+            max_attempts = 500
             
             while len(negative_patches) < target_negative and attempts < max_attempts:
                 if height > patch_size and width > patch_size:
@@ -395,7 +405,7 @@ def extract_multi_scanner_patches(df, images_dir, masks_dir, output_dir,
             print(f"      ├── images/")
             print(f"      └── masks/")
     
-    print(f"\n✓ Patches ready for training!\n")
+    print(f"\nPatches ready for training!\n")
     
     return all_statistics
 
@@ -479,4 +489,4 @@ if __name__ == "__main__":
         exclude_scanner="Leica GT450"
     )
     
-    print(f"✓ Data extraction complete! Patch size: {args.patch_size}px")
+    print(f"Data extraction complete! Patch size: {args.patch_size}px")
